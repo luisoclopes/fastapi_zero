@@ -7,9 +7,11 @@ from fastapi_zero.app import app
 
 from fastapi_zero.models import table_registry
 
+
 @pytest.fixture
 def client():
     return TestClient(app)
+
 
 @pytest.fixture
 def session():
@@ -19,3 +21,23 @@ def session():
         yield session
 
     table_registry.metadata.drop_all(engine)
+
+from sqlalchemy import event
+from fastapi_zero.models import User
+from contextlib import contextmanager
+
+@contextmanager
+def _mock_db_time(*, model, time=datetime(2026, 1, 14)):
+    def fake_time_hook(mapper, connection, target):
+        if hasattr(target, 'created_at'):
+            target.created_at = time
+
+    event.listen(model, 'before_insert', fake_time_hook)
+
+    yield time
+
+    event.remove(model, 'before_insert', fake_time_hook)
+
+@pytest.fixture
+def mock_db_time():
+    return _mock_db_time
